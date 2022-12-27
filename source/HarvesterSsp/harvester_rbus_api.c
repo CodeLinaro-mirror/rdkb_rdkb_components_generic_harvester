@@ -39,6 +39,7 @@
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
 #include "harvester_rbus_api.h"
+#include <cJSON.h>
 
 static rbusHandle_t rbus_handle;
 
@@ -169,11 +170,9 @@ int rbus_getUInt32Value(ULONG * value, char * path)
 
 int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t** associated_dev, uint32_t *assocDevCount)
 {
-    int rc, resCount, count = 0;
+    int rc, count = 0, i=0;
     wifi_associated_dev_t *dev=NULL;
     rbusValue_t assocDevVal;
-    rbusProperty_t props = NULL;
-    rbusValue_t paramValue_t = NULL;
 
     if(!rbusInitializedCheck())
     {
@@ -182,10 +181,14 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
     }
 
     char path[128] = {'\0'};
-    snprintf(path, sizeof(path), "Device.WiFi.AccessPoint.%d.AssociatedDeviceNumberOfEntries", index);
+    snprintf(path, sizeof(path), "Device.WiFi.AccessPoint.%d.X_RDK_DiagData", index);
 
-    CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: calling rbus get for %s\n", __FUNCTION__, path));
-
+    CcspHarvesterTrace(("RDK_LOG_INFO, Harvester %s: calling rbus get for %s\n", __FUNCTION__, path));
+    if(!rbus_handle)
+    {
+        CcspHarvesterTrace(("RDK_LOG_ERROR, rbus_getApAssociatedDeviceDiagnosticResult failed as rbus_handle is not initialized\n"));
+        return 1;
+    }
     rc = rbus_get(rbus_handle, path, &assocDevVal);
 
     if(rc != RBUS_ERROR_SUCCESS)
@@ -198,171 +201,212 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
         return 1;
     }
 
-    *assocDevCount = rbusValue_GetUInt32(assocDevVal);
+    cJSON *jsonVal = NULL;
+    cJSON *outerClientsArr = NULL;
+    cJSON *innerClientArr = NULL;
+    cJSON *item = NULL;
+    cJSON *devData = NULL;
+    int outerArrCount = 0;
+    char *assocDevDataStr = (char *)rbusValue_GetString(assocDevVal, NULL);
+    CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: assocDevDataStr is %s\n", __FUNCTION__, assocDevDataStr));
+    CcspHarvesterConsoleTrace(("RDK_LOG_DEBUG, Harvester %s: assocDevDataStr is %s\n", __FUNCTION__, assocDevDataStr));
+    jsonVal = cJSON_Parse(assocDevDataStr);
 
-    if(*assocDevCount == 0)
+    if (jsonVal != NULL)
     {
-        CcspHarvesterTrace(("RDK_LOG_INFO, Harvester %s: no associated devices are connected\n", __FUNCTION__));
-        return 0;
-    }
+	if(cJSON_GetObjectItem(jsonVal, "AssociatedClientsDiagnostics") != NULL)
+	{
+        	outerClientsArr = cJSON_GetObjectItem(jsonVal, "AssociatedClientsDiagnostics");
+        	if(outerClientsArr != NULL)
+        	{
+    			outerArrCount = cJSON_GetArraySize(outerClientsArr);
+                        CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: outerArrCount is %d\n", __FUNCTION__, outerArrCount));
 
-    dev = (wifi_associated_dev_t *)calloc(*assocDevCount, sizeof(wifi_associated_dev_t));
-    *associated_dev = dev;
+    			if(outerArrCount == 0)
+    			{
+        			CcspHarvesterTrace(("RDK_LOG_INFO, Harvester %s: no associated devices clients are connected\n", __FUNCTION__));
+        			if(assocDevVal != NULL)
+        			{
+                                        CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: Release assocDevVal if count is 0\n", __FUNCTION__));
+           				rbusValue_Release(assocDevVal);
+        			}
+        			return 0;
+    			}
+    			for(i=0; i < outerArrCount; i++)
+    			{
+    				item = cJSON_GetArrayItem(outerClientsArr, i);
+    				if(item != NULL){
+    					innerClientArr = cJSON_GetObjectItem(item, "AssociatedClientDiagnostics"); }
 
-    const char * wildCardPath[1];
-    wildCardPath[0] = path;
+    				if(innerClientArr != NULL) {
+                                        *assocDevCount = cJSON_GetArraySize(innerClientArr);}
 
-    for(count = 0; count < *assocDevCount; count++)
-    {
-        snprintf(path, sizeof(path), "Device.WiFi.AccessPoint.%d.AssociatedDevice.%d.", index, count+1);
+                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: assocDevCount is %d\n", __FUNCTION__, *assocDevCount));
 
-        CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: calling rbus get for %s\n", __FUNCTION__, path));
+    				if(*assocDevCount == 0)
+    				{
+        				CcspHarvesterTrace(("RDK_LOG_INFO, Harvester %s: no associated devices are connected\n", __FUNCTION__));
+        				if(assocDevVal != NULL)
+        				{
+                                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: Release assocDevVal if count is 0\n", __FUNCTION__));
+           					rbusValue_Release(assocDevVal);
+        				}
+        				return 0;
+    				}
 
-        rc = rbus_getExt(rbus_handle, 1, wildCardPath, &resCount, &props);
+    				dev = (wifi_associated_dev_t *)calloc(*assocDevCount, sizeof(wifi_associated_dev_t));
+    				*associated_dev = dev;
 
-        if(rc != RBUS_ERROR_SUCCESS)
-        {
-            CcspHarvesterTrace(("RDK_LOG_ERROR, Harvester %s: rbus_getExt failed for [%s] with error [%d]\n", __FUNCTION__, path, rc));
-            rbusProperty_Release(props);
-            return 1;
-        }
+        			for(count = 0; count < *assocDevCount; count++)
+        			{
+            				devData = cJSON_GetArrayItem(innerClientArr, count);
 
-        if(props != NULL)
-        {
-            rbusProperty_t next = props;
-            while(next != NULL)
-            {
-                paramValue_t = rbusProperty_GetValue(next);
-                if(paramValue_t != NULL)
-                {
-                    char * propName = (char *)rbusProperty_GetName(next);
-                    if(propName != NULL)
-                    {
-                        CcspHarvesterTrace(("RDK_LOG_DEBUG, propName is %s\n", propName));
-                        if(strstr(propName, ".MACAddress") != NULL)
-                        {
-                            char * mac = (char *)rbusValue_GetString(paramValue_t, NULL);
-                            if(mac != NULL)
-                            {
-                                sscanf(mac, "%x:%x:%x:%x:%x:%x",
-                                (unsigned int *)&dev[count].cli_MACAddress[0],
-                                (unsigned int *)&dev[count].cli_MACAddress[1],
-                                (unsigned int *)&dev[count].cli_MACAddress[2],
-                                (unsigned int *)&dev[count].cli_MACAddress[3],
-                                (unsigned int *)&dev[count].cli_MACAddress[4],
-                                (unsigned int *)&dev[count].cli_MACAddress[5]);
-                            }
-                        }
-                        else if(strstr(propName, ".AuthenticationState") != NULL)
-                        {
-                            bool authState = rbusValue_GetBoolean(paramValue_t);
-                            dev[count].cli_AuthenticationState = authState;
-                        }
-                        else if(strstr(propName, ".LastDataDownlinkRate") != NULL)
-                        {
-                            uint32_t lstDataDwnRate = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_LastDataDownlinkRate = lstDataDwnRate;
-                        }
-                        else if(strstr(propName, ".LastDataUplinkRate") != NULL)
-                        {
-                            uint32_t lstDataUpRate = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_LastDataUplinkRate = lstDataUpRate;
-                        }
-                        else if(strstr(propName, ".SignalStrength") != NULL)
-                        {
-                            int signalStrength  = rbusValue_GetInt32(paramValue_t);
-                            dev[count].cli_SignalStrength = signalStrength;
-                        }
-                        else if(strstr(propName, ".Retransmissions") != NULL)
-                        {
-                            uint32_t retransmission = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_Retransmissions = retransmission;
-                        }
-                        else if(strstr(propName, ".Active") != NULL)
-                        {
-                            bool active  = rbusValue_GetBoolean(paramValue_t);
-                            dev[count].cli_Active = active;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_OperatingStandard") != NULL)
-                        {
-                            char * operatingStd=(char*)rbusValue_GetString(paramValue_t, NULL);
-                            if(operatingStd != NULL)
-                            {
-                                strcpy_s(dev[count].cli_OperatingStandard, 64, operatingStd);
-                            }
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_OperatingChannelBandwidth") != NULL)
-                        {
-                            char * opchanBtw=(char*)rbusValue_GetString(paramValue_t, NULL);
-                            if(opchanBtw != NULL)
-                            {
-                                strcpy_s(dev[count].cli_OperatingChannelBandwidth, 64, opchanBtw);
-                            }
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_SNR") != NULL)
-                        {
-                            int snr  = rbusValue_GetInt32(paramValue_t);
-                            dev[count].cli_SNR = snr;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_InterferenceSources") != NULL)
-                        {
-                            char * interferenceSrc = (char*)rbusValue_GetString(paramValue_t, NULL);
-                            if(interferenceSrc != NULL)
-                            {
-                                strcpy_s(dev[count].cli_InterferenceSources, 64, interferenceSrc);
-                            }
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_DataFramesSentAck") != NULL)
-                        {
-                            uint32_t datFrameSentACK = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_DataFramesSentAck = datFrameSentACK;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_DataFramesSentNoAck") != NULL)
-                        {
-                            uint32_t datFrameSentNACK= rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_DataFramesSentNoAck = datFrameSentNACK;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_BytesSent") != NULL)
-                        {
-                            uint32_t  bytesSent= rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_BytesSent = bytesSent;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_BytesReceived") != NULL)
-                        {
-                            uint32_t bytesReceived = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_BytesReceived = bytesReceived;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_RSSI") != NULL)
-                        {
-                            int rssi = rbusValue_GetInt32(paramValue_t);
-                            dev[count].cli_RSSI = rssi;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_MinRSSI") != NULL)
-                        {
-                            int minRssi = rbusValue_GetInt32(paramValue_t);
-                            dev[count].cli_MinRSSI = minRssi;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_MaxRSSI") != NULL)
-                        {
-                            int maxRssi = rbusValue_GetInt32(paramValue_t);
-                            dev[count].cli_MaxRSSI = maxRssi;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_Disassociations") != NULL)
-                        {
-                            uint32_t disassociate = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_Disassociations = disassociate;
-                        }
-                        else if(strstr(propName, ".X_COMCAST-COM_AuthenticationFailures") != NULL)
-                        {
-                            uint32_t authFail = rbusValue_GetUInt32(paramValue_t);
-                            dev[count].cli_AuthenticationFailures = authFail;
+            				if(devData != NULL)
+            				{
+                            			if(cJSON_GetObjectItem(devData, "MAC") != NULL)
+                            			{
+                                			char * mac = cJSON_GetObjectItem(devData, "MAC")->valuestring;
+                                                        CcspHarvesterTrace(("RDK_LOG_DEBUG, After rbusValue_GetString\n"));
+                                			if(mac != NULL)
+                                			{
+                                    				sscanf(mac, "%x:%x:%x:%x:%x:%x",
+						            (unsigned int *)&dev[count].cli_MACAddress[0],
+						            (unsigned int *)&dev[count].cli_MACAddress[1],
+						            (unsigned int *)&dev[count].cli_MACAddress[2],
+						            (unsigned int *)&dev[count].cli_MACAddress[3],
+						            (unsigned int *)&dev[count].cli_MACAddress[4],
+						            (unsigned int *)&dev[count].cli_MACAddress[5]);
+                                                            CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] Inside Mac %s, i %d \n", count, mac, i));
+                                			}
+                             			}
+                             if(cJSON_GetObjectItem(devData, "AuthenticationState") != NULL)
+                             {
+                                bool authState = (strcmp(cJSON_GetObjectItem(devData, "AuthenticationState")->valuestring,"1") == 0) ? true : false;
+                                dev[count].cli_AuthenticationState = authState;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_AuthenticationState %s i %d\n", count, (dev[count].cli_AuthenticationState == 1)? "true": "false", i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "DownlinkDataRate") != NULL)
+                             {
+                                uint32_t lstDataDwnRate = atoi(cJSON_GetObjectItem(devData, "DownlinkDataRate")->valuestring);
+                                dev[count].cli_LastDataDownlinkRate = lstDataDwnRate;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_LastDataDownlinkRate %d i %d\n", count, dev[count].cli_LastDataDownlinkRate, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "UplinkDataRate") != NULL)
+                             {
+                                uint32_t lstDataUpRate = atoi(cJSON_GetObjectItem(devData, "UplinkDataRate")->valuestring);
+                                dev[count].cli_LastDataUplinkRate = lstDataUpRate;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_LastDataUplinkRate %d i %d\n", count, dev[count].cli_LastDataUplinkRate, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "SignalStrength") != NULL)
+                             {
+                                int signalStrength  = atoi(cJSON_GetObjectItem(devData, "SignalStrength")->valuestring);
+                                dev[count].cli_SignalStrength = signalStrength;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_SignalStrength %d i %d\n", count, dev[count].cli_SignalStrength, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "Retransmissions") != NULL)
+                             {
+                                uint32_t retransmission = atoi(cJSON_GetObjectItem(devData, "Retransmissions")->valuestring);
+                                dev[count].cli_Retransmissions = retransmission;
+                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_Retransmissions %d i %d\n", count, dev[count].cli_Retransmissions, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "Active") != NULL)
+                             {
+                                bool active  = (strcmp(cJSON_GetObjectItem(devData, "Active")->valuestring, "1") == 0) ? true: false;
+                                dev[count].cli_Active = active;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_Active %s i %d\n", count, (dev[count].cli_Active == 1)? "true": "false", i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "OperatingStandard") != NULL)
+                             {
+                                char * operatingStd=cJSON_GetObjectItem(devData, "OperatingStandard")->valuestring;
+                                if(operatingStd != NULL)
+                                {
+                                    strcpy_s(dev[count].cli_OperatingStandard, 64, operatingStd);
+                                  CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_OperatingStandard %s i %d\n", count, dev[count].cli_OperatingStandard, i));
+                                }
+                             }
+                             if(cJSON_GetObjectItem(devData, "OperatingChannelBandwidth") != NULL)
+                             {
+                                char * opchanBtw=(char*)cJSON_GetObjectItem(devData, "OperatingChannelBandwidth")->valuestring;
+                                if(opchanBtw != NULL)
+                                {
+                                    strcpy_s(dev[count].cli_OperatingChannelBandwidth, 64, opchanBtw);
+                                  CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_OperatingChannelBandwidth %s i %d\n", count, dev[count].cli_OperatingChannelBandwidth, i));
+                                }
+                             }
+                             if(cJSON_GetObjectItem(devData, "SNR") != NULL)
+                             {
+                                int snr  = atoi(cJSON_GetObjectItem(devData, "SNR")->valuestring);
+                                dev[count].cli_SNR = snr;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_SNR %d i %d\n", count, dev[count].cli_SNR, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "InterferenceSources") != NULL)
+                             {
+                                char * interferenceSrc = (char*)cJSON_GetObjectItem(devData, "InterferenceSources")->valuestring;
+                                if(interferenceSrc != NULL)
+                                {
+                                    strcpy_s(dev[count].cli_InterferenceSources, 64, interferenceSrc);
+                                  CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_InterferenceSources %s i %d\n", count, dev[count].cli_InterferenceSources, i));
+                                }
+                             }
+                             if(cJSON_GetObjectItem(devData, "Acknowledgements") != NULL)
+                             {
+                                uint32_t datFrameSentACK = atoi(cJSON_GetObjectItem(devData, "Acknowledgements")->valuestring);
+                                dev[count].cli_DataFramesSentAck = datFrameSentACK;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_DataFramesSentAck %ld i %d\n", count, dev[count].cli_DataFramesSentAck, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "DataFramesSentNoAck") != NULL)
+                             {
+                                uint32_t datFrameSentNACK= atoi(cJSON_GetObjectItem(devData, "DataFramesSentNoAck")->valuestring);
+                                dev[count].cli_DataFramesSentNoAck = datFrameSentNACK;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_DataFramesSentNoAck %ld i %d\n", count, dev[count].cli_DataFramesSentNoAck, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "BytesSent") != NULL)
+                             {
+                                uint32_t  bytesSent= atoi(cJSON_GetObjectItem(devData, "BytesSent")->valuestring);
+                                dev[count].cli_BytesSent = bytesSent;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_BytesSent %ld i %d\n", count, dev[count].cli_BytesSent, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "BytesReceived") != NULL)
+                             {
+                                uint32_t bytesReceived = atoi(cJSON_GetObjectItem(devData, "BytesReceived")->valuestring);
+                                dev[count].cli_BytesReceived = bytesReceived;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_BytesReceived %ld i %d\n", count, dev[count].cli_BytesReceived, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "RSSI") != NULL)
+                             {
+                                int rssi = atoi(cJSON_GetObjectItem(devData, "RSSI")->valuestring);
+                                dev[count].cli_RSSI = rssi;
+                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_RSSI %d i %d\n", count, dev[count].cli_RSSI, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "MinRSSI") != NULL)
+                             {
+                                int minRssi = atoi(cJSON_GetObjectItem(devData, "MinRSSI")->valuestring);
+                                dev[count].cli_MinRSSI = minRssi;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_MinRSSI %d i %d\n", count, dev[count].cli_MinRSSI, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "MaxRSSI") != NULL)
+                             {
+                                int maxRssi = atoi(cJSON_GetObjectItem(devData, "MaxRSSI")->valuestring);
+                                dev[count].cli_MaxRSSI = maxRssi;
+                               CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_MaxRSSI %d i %d\n", count, dev[count].cli_MaxRSSI, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "Disassociations") != NULL)
+                             {
+                                uint32_t disassociate = atoi(cJSON_GetObjectItem(devData, "Disassociations")->valuestring);
+                                dev[count].cli_Disassociations = disassociate;
+                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_Disassociations %d i %d\n", count, dev[count].cli_Disassociations, i));
+                             }
+                             if(cJSON_GetObjectItem(devData, "AuthenticationFailures") != NULL)
+                             {
+                                uint32_t authFail = atoi(cJSON_GetObjectItem(devData, "AuthenticationFailures")->valuestring);
+                                dev[count].cli_AuthenticationFailures = authFail;
+                                CcspHarvesterTrace(("RDK_LOG_DEBUG, Printing dev[%d] cli_AuthenticationFailures %d i %d\n", count, dev[count].cli_AuthenticationFailures, i));
+                             }
                         }
                     }
-                }
-                next = rbusProperty_GetNext(next);
-            }
-            rbusProperty_Release(props);
-        }
+               }
+        	}
+	}
     }
     return 0;
 }

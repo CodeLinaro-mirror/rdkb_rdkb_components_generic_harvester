@@ -597,6 +597,7 @@ int GetWiFiApGetAssocDevicesData(int ServiceType, int wlanIndex, char* pSsid)
     //hal would allocate the array
     ret = wifi_getApAssociatedDeviceDiagnosticResult(wlanIndex, &wifi_associated_dev_array, &array_size);
 #endif
+    CcspHarvesterTrace(("RDK_LOG_INFO, After rbus_getApAssociated call,ret = %d, Array Size is %d \n", ret, array_size));
     if (!ret && wifi_associated_dev_array && array_size > 0)
     {
         struct associateddevicedata **headnode = NULL;

@@ -230,6 +230,7 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
                                         CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: Release assocDevVal if count is 0\n", __FUNCTION__));
            				rbusValue_Release(assocDevVal);
         			}
+        			cJSON_Delete(jsonVal);
         			return 0;
     			}
     			for(i=0; i < outerArrCount; i++)
@@ -249,8 +250,9 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
         				if(assocDevVal != NULL)
         				{
                                                 CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: Release assocDevVal if count is 0\n", __FUNCTION__));
-           					rbusValue_Release(assocDevVal);
+           					rbusValue_Release(assocDevVal);	
         				}
+        				cJSON_Delete(jsonVal);
         				return 0;
     				}
 
@@ -407,6 +409,12 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
                }
         	}
 	}
+	if(assocDevVal != NULL)
+        {
+        	CcspHarvesterTrace(("RDK_LOG_DEBUG, Harvester %s: Release assocDevVal if count is not 0\n", __FUNCTION__));
+        	rbusValue_Release(assocDevVal);	
+        }
+	cJSON_Delete(jsonVal);
     }
     return 0;
 }

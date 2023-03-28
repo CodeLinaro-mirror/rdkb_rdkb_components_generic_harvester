@@ -172,7 +172,7 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
 {
     int rc, count = 0, i=0;
     wifi_associated_dev_t *dev=NULL;
-    rbusValue_t assocDevVal;
+    rbusValue_t assocDevVal = NULL;
 
     if(!rbusInitializedCheck())
     {

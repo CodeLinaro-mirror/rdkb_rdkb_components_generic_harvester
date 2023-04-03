@@ -271,7 +271,7 @@ int rbus_getApAssociatedDeviceDiagnosticResult(int index, wifi_associated_dev_t*
                                                         CcspHarvesterTrace(("RDK_LOG_DEBUG, After rbusValue_GetString\n"));
                                 			if(mac != NULL)
                                 			{
-                                    				sscanf(mac, "%x:%x:%x:%x:%x:%x",
+                                    				sscanf(mac, "%2x%2x%2x%2x%2x%2x",
 						            (unsigned int *)&dev[count].cli_MACAddress[0],
 						            (unsigned int *)&dev[count].cli_MACAddress[1],
 						            (unsigned int *)&dev[count].cli_MACAddress[2],

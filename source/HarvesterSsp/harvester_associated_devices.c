@@ -698,7 +698,14 @@ void* StartAssociatedDeviceHarvesting( void *arg )
         ulNumOfRadios = 3;
     }
 
+#if defined(_SR213_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_)
+   /* Need to poll everytime in case if InterfaceDevicesWifi.Enabled is true. Notices if in case any of wifi subsystem call failed, the polling
+    * thread is exiting and not even sending report once wifi subsystem ready. So here ensure the thread is checking in every polling interval and
+    * if we have proper data from wifi system, send the report else wait & try next interval instead of completely exiting out from polling thread. */
+    while (GetIDWHarvestingStatus()) {
+#else
     while (!ret && GetIDWHarvestingStatus()) {
+#endif // defined(_SR213_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_)
 
         ULONG output = 0;
         int k = 0;
@@ -738,6 +745,7 @@ void* StartAssociatedDeviceHarvesting( void *arg )
                 }
             }
 
+#if !defined(_SR213_PRODUCT_REQ_) && !defined(_HUB4_PRODUCT_REQ_) /* Disable Xfinity Hotspot SSID scan for HUB6/HUB4. */
             // scan PUBLIC WiFi
             for (k = PUBLIC_WIFI_IDX_STARTS; k <= PUBLIC_WIFI_IDX_ENDS; k++)
             {
@@ -759,6 +767,7 @@ void* StartAssociatedDeviceHarvesting( void *arg )
                     CcspHarvesterTrace(("RDK_LOG_ERROR, Harvester %s : GetWiFiApGetAssocDevicesData returned error [%d] for SSID[%s] \n",__FUNCTION__, ret, ssid));
                 }
             }
+#endif // !_SR213_PRODUCT_REQ_ && !_HUB4_PRODUCT_REQ_
 
             currentReportingPeriod = currentReportingPeriod + GetIDWPollingPeriod();
             CcspHarvesterConsoleTrace(("RDK_LOG_DEBUG, Before Sending to WebPA and AVRO currentReportingPeriod [%ld] GetIDWReportingPeriod()[%ld]  \n", currentReportingPeriod, GetIDWReportingPeriod()));

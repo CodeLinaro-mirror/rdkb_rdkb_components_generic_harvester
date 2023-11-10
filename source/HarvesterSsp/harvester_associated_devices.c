@@ -698,15 +698,11 @@ void* StartAssociatedDeviceHarvesting( void *arg )
         ulNumOfRadios = 3;
     }
 
-#if defined(_SR213_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_)
    /* Need to poll everytime in case if InterfaceDevicesWifi.Enabled is true. Notices if in case any of wifi subsystem call failed, the polling
     * thread is exiting and not even sending report once wifi subsystem ready. So here ensure the thread is checking in every polling interval and
     * if we have proper data from wifi system, send the report else wait & try next interval instead of completely exiting out from polling thread. */
+    //Removed sky hub check as similar issue is noticed across platforms and need fix in generic layer.
     while (GetIDWHarvestingStatus()) {
-#else
-    while (!ret && GetIDWHarvestingStatus()) {
-#endif // defined(_SR213_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_)
-
         ULONG output = 0;
         int k = 0;
         /* CID: 79303 OVERRUN - Out-of-bounds access

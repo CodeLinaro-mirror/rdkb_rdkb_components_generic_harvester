@@ -43,8 +43,8 @@ BOOL NAPOnDemandHarvesterStatus = FALSE;
 char tmp_buffer[72] = {'\0'};
 #endif
 
-static struct neighboringapdata *naphead = NULL;
-static struct neighboringapdata *napcurr = NULL;
+STATIC struct neighboringapdata *naphead = NULL;
+STATIC struct neighboringapdata *napcurr = NULL;
 
 void* StartNeighboringAPOnDemandHarvesting(void* arg);
 

@@ -29,7 +29,7 @@
 #include "libparodus.h"
 #include "webpa_interface.h"
 #include "safec_lib_common.h"
-
+#include "harvester_avro.h"
 
 #define MAX_PARAMETERNAME_LEN   512
 #define ETH_WAN_STATUS_PARAM "Device.Ethernet.X_RDKCENTRAL-COM_WAN.Enabled"
@@ -41,12 +41,12 @@ pthread_mutex_t webpa_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t device_mac_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char deviceMAC[32]={'\0'};
-static void checkComponentHealthStatus(char * compName, char * dbusPath, char *status, int *retStatus, int status_size);
-static void waitForEthAgentComponentReady();
-static int check_ethernet_wan_status();
+STATIC void checkComponentHealthStatus(char * compName, char * dbusPath, char *status, int *retStatus, int status_size);
+STATIC void waitForEthAgentComponentReady();
+STATIC int check_ethernet_wan_status();
 
 libpd_instance_t client_instance;
-static void *handle_parodus();
+STATIC void *handle_parodus();
 
 int s_sysevent_connect (token_t *out_se_token);
 
@@ -204,7 +204,7 @@ void initparodusTask()
     }
 }
 
-static void *handle_parodus()
+STATIC void *handle_parodus()
 {
     int backoffRetryTime = 0;
     int backoff_max_time = 9;
@@ -269,7 +269,7 @@ const char *rdk_logger_module_fetch(void)
     return "LOG.RDK.Harvester";
 }
 
-static void waitForEthAgentComponentReady()
+STATIC void waitForEthAgentComponentReady()
 {
     char status[32] = {'\0'};
     int count = 0;
@@ -311,7 +311,7 @@ static void waitForEthAgentComponentReady()
     }
 }
 
-static void checkComponentHealthStatus(char * compName, char * dbusPath, char *status, int *retStatus,int status_size)
+STATIC void checkComponentHealthStatus(char * compName, char * dbusPath, char *status, int *retStatus,int status_size)
 {
 	int ret = 0, val_size = 0;
 	parameterValStruct_t **parameterval = NULL;
@@ -358,7 +358,7 @@ static void checkComponentHealthStatus(char * compName, char * dbusPath, char *s
 	*retStatus = ret;
 }
 
-static int check_ethernet_wan_status()
+STATIC int check_ethernet_wan_status()
 {
     int ret = -1, size =0, val_size =0;
     char compName[MAX_PARAMETERNAME_LEN/2] = { '\0' };

@@ -48,8 +48,10 @@ void get_parodus_url(char **url)
 		CcspHarvesterConsoleTrace(("RDK_LOG_DEBUG,Adding default value for parodus_url\n"));
 		*url = strdup(PARODUS_URL_DEFAULT);
     }
-    fclose(fp);
-
+    if( NULL != fp ) 
+    {
+    	fclose(fp);
+    }
     if( NULL == *url ) {
         CcspHarvesterConsoleTrace(("RDK_LOG_ERROR, parodus url is not present in device.properties file, adding default parodus_url\n"));
 		*url = strdup(PARODUS_URL_DEFAULT);

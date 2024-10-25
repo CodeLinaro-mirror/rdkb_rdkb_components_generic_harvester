@@ -68,7 +68,7 @@ static char *macStr = NULL;
 static char CpemacStr[ 32 ];
 char *buffer = NULL;
 char *idw_schemaidbuffer = "ec57a5b6-b167-4623-baff-399f063bd56a/a0fe2a90307541ad0b03411f52ccfd07";
-static avro_value_iface_t  *iface = NULL;
+STATIC avro_value_iface_t  *iface = NULL;
 BOOL schema_file_parsed = FALSE;
 size_t AvroSerializedSize;
 size_t OneAvroSerializedSize;

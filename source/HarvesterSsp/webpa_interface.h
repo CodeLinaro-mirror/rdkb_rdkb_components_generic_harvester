@@ -29,7 +29,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include "wifi_hal_generic.h"
 /*----------------------------------------------------------------------------*/
 /*                                   Macros                                   */
 /*----------------------------------------------------------------------------*/
@@ -46,7 +46,11 @@ extern "C" {
  *  @param url   [out] URL where parodus is listening.
  */
 void get_parodus_url(char **url);
-
+BOOL Cosa_FindDestComp(char* pObjName,char** ppDestComponentName, char** ppDestPath);
+void initparodusTask();
+void sendWebpaMsg(char *serviceName, char *dest, char *trans_id, char *contentType, char *payload, unsigned int payload_len);
+const char *rdk_logger_module_fetch(void);
+char * getDeviceMac();
 #ifdef __cplusplus
 }
 #endif

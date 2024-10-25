@@ -78,7 +78,7 @@ extern ulong GetCurrentTimeInSecond();
 extern int getTimeOffsetFromUtc();
 #endif
 
-static struct radiotrafficdata rIndex[MAX_NUM_RADIOS];
+STATIC struct radiotrafficdata rIndex[MAX_NUM_RADIOS];
 
 // RDKB-9258 : set polling and reporting periods to NVRAM after TTL expiry
 extern ANSC_STATUS SetRISPollingPeriodInNVRAM(ULONG pPollingVal);

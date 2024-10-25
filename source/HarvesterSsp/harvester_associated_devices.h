@@ -21,6 +21,7 @@
 #define  HARVESTER_ASSOCIATED_DEVICES_H
 
 #include "ansc_platform.h"
+#include "harvester_avro.h"
 
 /**
  * @brief Set the Harvesting Status for Associated Devices.
@@ -129,7 +130,17 @@ ULONG GetIDWOverrideTTLDefault();
 BOOL ValidateIDWPeriod(ULONG interval);
 
 BOOL isvalueinarray(ULONG val, ULONG *arr, int size);
-
+char* GetIDWSchemaBuffer();
+int GetIDWSchemaBufferSize();
+char* GetIDWSchemaIDBuffer();
+int GetIDWSchemaIDBufferSize();
+int NumberofElementsinLinkedList(struct associateddevicedata* head);
+ULONG NumberofDevicesinLinkedList(struct associateddevicedata* head);
+void harvester_avro_cleanup();
+char* GetCurrentTimeString();
+ulong GetCurrentTimeInSecond();
+BOOL isvalueinarray(ULONG val, ULONG *arr, int size);
+BOOL GetIDWHarvestingStatus();
 #ifdef RDK_ONEWIFI
 /**
  * @brief Extract the radioIndex value from the given string input

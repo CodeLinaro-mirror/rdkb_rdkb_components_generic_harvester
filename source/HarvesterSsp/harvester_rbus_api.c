@@ -41,7 +41,7 @@
 #include "harvester_rbus_api.h"
 #include <cJSON.h>
 
-static rbusHandle_t rbus_handle;
+STATIC rbusHandle_t rbus_handle;
 
 rbusHandle_t get_rbus_handle(void)
 {

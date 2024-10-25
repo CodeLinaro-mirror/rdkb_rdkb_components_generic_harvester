@@ -21,6 +21,7 @@
 #define  HARVESTER_NEIGHBORING_AP_H
 
 #include "ansc_platform.h"
+#include "harvester_avro.h"
 
 /**
  * @brief Set the Harvesting Status for Neighboring AP Scans.

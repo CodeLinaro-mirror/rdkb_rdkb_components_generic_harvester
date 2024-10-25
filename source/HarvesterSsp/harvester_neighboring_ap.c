@@ -67,8 +67,8 @@ char ap_buffer[128] = {'\0'};
 extern int getTimeOffsetFromUtc();
 #endif
 
-static struct neighboringapdata *headnode = NULL;
-static struct neighboringapdata *currnode = NULL;
+STATIC struct neighboringapdata *headnode = NULL;
+STATIC struct neighboringapdata *currnode = NULL;
 
 void* StartNeighboringAPHarvesting( void *arg );
 int _napsyscmd(char *cmd, char *retBuf, int retBufSize);

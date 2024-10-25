@@ -24,6 +24,12 @@
 #include <wifi_hal.h>
 #include <pthread.h>
 
+#ifndef UNIT_TEST_DOCKER_SUPPORT
+    #define STATIC                    static
+#else
+    #define STATIC
+#endif
+
 struct associateddevicedata
 {
 struct timeval timestamp;

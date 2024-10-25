@@ -264,3 +264,22 @@ CosaDmlHarvesterInit
     (
         ANSC_HANDLE                 hThisObject
     );
+
+ANSC_STATUS
+GetNVRamULONGConfiguration
+    (
+    char* setting, ULONG* value
+    );
+
+ANSC_STATUS
+SetIDWPollingPeriodInNVRAM
+    (
+        ULONG pPollingVal
+    );
+
+ANSC_STATUS
+SetNVRamULONGConfiguration
+    (
+        char* setting,
+        ULONG value
+    );

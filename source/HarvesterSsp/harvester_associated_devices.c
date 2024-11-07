@@ -36,6 +36,8 @@
 #include "report_common.h"
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
+#include <syscfg/syscfg.h>
+#include <sysevent/sysevent.h>
 #ifdef RDK_ONEWIFI
 #include "harvester_rbus_api.h"
 #endif
@@ -69,6 +71,8 @@ ULONG IDWOverrideTTLDefault = DEFAULT_TTL_INTERVAL;
 #ifdef RDK_ONEWIFI
 char bufferIDR[128] = {'\0'};
 #endif
+
+int s_sysevent_connect (token_t *token);
 
 void* StartAssociatedDeviceHarvesting( void *arg );
 #if !defined(UTC_ENABLE_ATOM) && !defined(_HUB4_PRODUCT_REQ_)
@@ -412,7 +416,25 @@ void add_to_list(struct associateddevicedata **headnode, char* ssid, ULONG devic
         ptr->next = NULL;
         gettimeofday(&(ptr->timestamp), NULL);
 #if !defined(UTC_ENABLE_ATOM) && !defined(_HUB4_PRODUCT_REQ_)
-        ptr->timestamp.tv_sec -= getTimeOffsetFromUtc();
+	int fd = 0;
+	token_t token;
+        char value[8];
+        bool skipOffset = false;
+	fd = s_sysevent_connect(&token);
+        if(sysevent_get(fd, token, "HarvesterTimeOffsetSupport", value, sizeof(value)) == 0)
+        {
+            if( value[0]!='\0')
+            {
+                if (strcmp(value, "false") == 0)
+                {
+                    skipOffset = true;
+                }
+            }
+        }
+        if(skipOffset == false)
+        {
+            ptr->timestamp.tv_sec -= getTimeOffsetFromUtc();
+        }
 #endif
         if (*headnode == NULL)
         {
@@ -742,6 +764,23 @@ void* StartAssociatedDeviceHarvesting( void *arg )
             }
 
 #if !defined(_SR213_PRODUCT_REQ_) && !defined(_HUB4_PRODUCT_REQ_) /* Disable Xfinity Hotspot SSID scan for HUB6/HUB4. */
+	int fd = 0;
+	token_t token;
+        char value[8];
+        bool skipScanning = false;
+	fd = s_sysevent_connect(&token);
+        if(sysevent_get(fd, token, "HarvesterScanPublicWiFiSupport", value, sizeof(value)) == 0)
+        {
+            if( value[0]!='\0')
+            {
+                if (strcmp(value, "false") == 0)
+                {
+                    skipScanning = true;
+                }
+            }
+        }
+        if(skipScanning == false)
+        {
             // scan PUBLIC WiFi
             for (k = PUBLIC_WIFI_IDX_STARTS; k <= PUBLIC_WIFI_IDX_ENDS; k++)
             {
@@ -763,6 +802,7 @@ void* StartAssociatedDeviceHarvesting( void *arg )
                     CcspHarvesterTrace(("RDK_LOG_ERROR, Harvester %s : GetWiFiApGetAssocDevicesData returned error [%d] for SSID[%s] \n",__FUNCTION__, ret, ssid));
                 }
             }
+        }
 #endif // !_SR213_PRODUCT_REQ_ && !_HUB4_PRODUCT_REQ_
 
             currentReportingPeriod = currentReportingPeriod + GetIDWPollingPeriod();
